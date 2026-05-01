@@ -4,9 +4,12 @@ import com.example.petapi.dto.CreatePetRequest;
 import com.example.petapi.dto.PetResponse;
 import com.example.petapi.model.Pet;
 import org.mapstruct.Mapper;
+import org.mapstruct.factory.Mappers;
 
-@Mapper(componentModel = "spring")
+@Mapper
 public interface PetMapper {
+
+    PetMapper INSTANCE = Mappers.getMapper(PetMapper.class);
 
     PetResponse toResponse(Pet pet);
 
