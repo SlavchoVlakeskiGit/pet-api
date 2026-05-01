@@ -12,6 +12,8 @@ import com.example.petapi.mapper.PetMapper;
 import com.example.petapi.model.Pet;
 import com.example.petapi.repository.PetRepository;
 import io.github.resilience4j.retry.annotation.Retry;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
@@ -36,15 +38,21 @@ public class PetService {
     private final PetEventPublisher eventPublisher;
     private final PetAuditService auditService;
     private final PetAuditRepository auditRepository;
+    private final Counter petsCreatedCounter;
+    private final Counter petsUpdatedCounter;
+    private final Counter petsDeletedCounter;
 
     public PetService(PetRepository repository, PetMapper mapper,
                       PetEventPublisher eventPublisher, PetAuditService auditService,
-                      PetAuditRepository auditRepository) {
+                      PetAuditRepository auditRepository, MeterRegistry meterRegistry) {
         this.repository = repository;
         this.mapper = mapper;
         this.eventPublisher = eventPublisher;
         this.auditService = auditService;
         this.auditRepository = auditRepository;
+        this.petsCreatedCounter = Counter.builder("pets.created").description("Total pets created").register(meterRegistry);
+        this.petsUpdatedCounter = Counter.builder("pets.updated").description("Total pets updated").register(meterRegistry);
+        this.petsDeletedCounter = Counter.builder("pets.deleted").description("Total pets soft-deleted").register(meterRegistry);
     }
 
     public Page<PetResponse> getAllPets(String species, String ownerName, Pageable pageable) {
@@ -76,6 +84,7 @@ public class PetService {
         log.info("Pet created with id: {}", response.getId());
         eventPublisher.publish(response.getId(), response.getName(), "CREATED");
         auditService.log(response.getId(), response.getName(), "CREATED", currentUser());
+        petsCreatedCounter.increment();
         return response;
     }
 
@@ -105,6 +114,7 @@ public class PetService {
         log.info("Pet with id: {} updated successfully", id);
         eventPublisher.publish(id, response.getName(), "UPDATED");
         auditService.log(id, response.getName(), "UPDATED", currentUser());
+        petsUpdatedCounter.increment();
         return response;
     }
 
@@ -122,6 +132,7 @@ public class PetService {
         log.info("Pet with id: {} soft deleted", id);
         eventPublisher.publish(id, petName, "DELETED");
         auditService.log(id, petName, "DELETED", currentUser());
+        petsDeletedCounter.increment();
     }
 
     public List<PetAuditLog> getAuditLog(Long petId) {

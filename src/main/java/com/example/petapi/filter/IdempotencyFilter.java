@@ -37,7 +37,8 @@ public class IdempotencyFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         String idempotencyKey = request.getHeader(HEADER);
 
-        if (idempotencyKey == null || !HttpMethod.POST.matches(request.getMethod())) {
+        if (idempotencyKey == null || !HttpMethod.POST.matches(request.getMethod())
+                || !request.getRequestURI().startsWith("/v1/pets")) {
             filterChain.doFilter(request, response);
             return;
         }

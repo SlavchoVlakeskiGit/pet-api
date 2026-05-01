@@ -19,7 +19,7 @@ import org.springframework.data.domain.Pageable;
 import java.util.List;
 
 @RestController
-@RequestMapping("/pets")
+@RequestMapping("/v1/pets")
 @Tag(name = "Pets", description = "Operations for managing pets")
 public class PetController {
 

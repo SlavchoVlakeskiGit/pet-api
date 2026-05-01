@@ -51,14 +51,14 @@ class PetControllerIntegrationTest {
     @BeforeAll
     void setupAuth() {
         Map<String, String> credentials = Map.of("username", "testuser", "password", "secret123");
-        restTemplate.postForEntity("/auth/register", credentials, Void.class);
-        ResponseEntity<Map> loginResponse = restTemplate.postForEntity("/auth/login", credentials, Map.class);
+        restTemplate.postForEntity("/v1/auth/register", credentials, Void.class);
+        ResponseEntity<Map> loginResponse = restTemplate.postForEntity("/v1/auth/login", credentials, Map.class);
         token = (String) loginResponse.getBody().get("token");
         assertNotNull(token, "Login must return a JWT token");
 
         // admin user is seeded by DataInitializer on context startup
         ResponseEntity<Map> adminLogin = restTemplate.postForEntity(
-                "/auth/login", Map.of("username", "admin", "password", "admin123"), Map.class);
+                "/v1/auth/login", Map.of("username", "admin", "password", "admin123"), Map.class);
         adminToken = (String) adminLogin.getBody().get("token");
         assertNotNull(adminToken, "Admin login must return a JWT token");
     }
@@ -84,7 +84,7 @@ class PetControllerIntegrationTest {
 
     @Test
     void getPets_returnsEmptyPage() {
-        ResponseEntity<Map> response = restTemplate.getForEntity("/pets", Map.class);
+        ResponseEntity<Map> response = restTemplate.getForEntity("/v1/pets", Map.class);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(0, response.getBody().get("totalElements"));
@@ -94,7 +94,7 @@ class PetControllerIntegrationTest {
     void createPet_withoutAuth_returns403() {
         Map<String, Object> body = Map.of("name", "Rex", "species", "Dog");
 
-        ResponseEntity<String> response = restTemplate.postForEntity("/pets", body, String.class);
+        ResponseEntity<String> response = restTemplate.postForEntity("/v1/pets", body, String.class);
 
         assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
     }
@@ -103,7 +103,7 @@ class PetControllerIntegrationTest {
     void createPet_withAuth_returns201WithPetData() {
         Map<String, Object> body = Map.of("name", "Rex", "species", "Dog", "age", 3);
 
-        ResponseEntity<Map> response = restTemplate.exchange("/pets", HttpMethod.POST, withAuth(body), Map.class);
+        ResponseEntity<Map> response = restTemplate.exchange("/v1/pets", HttpMethod.POST, withAuth(body), Map.class);
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         assertNotNull(response.getBody().get("id"));
@@ -115,10 +115,10 @@ class PetControllerIntegrationTest {
     @Test
     void getPetById_returnsPet() {
         ResponseEntity<Map> created = restTemplate.exchange(
-                "/pets", HttpMethod.POST, withAuth(Map.of("name", "Luna", "species", "Cat")), Map.class);
+                "/v1/pets", HttpMethod.POST, withAuth(Map.of("name", "Luna", "species", "Cat")), Map.class);
         Integer id = (Integer) created.getBody().get("id");
 
-        ResponseEntity<Map> response = restTemplate.getForEntity("/pets/" + id, Map.class);
+        ResponseEntity<Map> response = restTemplate.getForEntity("/v1/pets/" + id, Map.class);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals("Luna", response.getBody().get("name"));
@@ -127,7 +127,7 @@ class PetControllerIntegrationTest {
 
     @Test
     void getPetById_nonExistent_returns404() {
-        ResponseEntity<Map> response = restTemplate.getForEntity("/pets/99999", Map.class);
+        ResponseEntity<Map> response = restTemplate.getForEntity("/v1/pets/99999", Map.class);
 
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
     }
@@ -135,11 +135,11 @@ class PetControllerIntegrationTest {
     @Test
     void updatePet_updatesOnlyProvidedFields() {
         ResponseEntity<Map> created = restTemplate.exchange(
-                "/pets", HttpMethod.POST, withAuth(Map.of("name", "Buddy", "species", "Dog")), Map.class);
+                "/v1/pets", HttpMethod.POST, withAuth(Map.of("name", "Buddy", "species", "Dog")), Map.class);
         Integer id = (Integer) created.getBody().get("id");
 
         ResponseEntity<Map> response = restTemplate.exchange(
-                "/pets/" + id, HttpMethod.PATCH, withAuth(Map.of("name", "Buddy Jr", "age", 2)), Map.class);
+                "/v1/pets/" + id, HttpMethod.PATCH, withAuth(Map.of("name", "Buddy Jr", "age", 2)), Map.class);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals("Buddy Jr", response.getBody().get("name"));
@@ -150,14 +150,14 @@ class PetControllerIntegrationTest {
     @Test
     void deletePet_softDeletes_andReturns404OnGet() {
         ResponseEntity<Map> created = restTemplate.exchange(
-                "/pets", HttpMethod.POST, withAuth(Map.of("name", "Milo", "species", "Rabbit")), Map.class);
+                "/v1/pets", HttpMethod.POST, withAuth(Map.of("name", "Milo", "species", "Rabbit")), Map.class);
         Integer id = (Integer) created.getBody().get("id");
 
         ResponseEntity<Void> deleteResponse = restTemplate.exchange(
-                "/pets/" + id, HttpMethod.DELETE, withAdminAuth(null), Void.class);
+                "/v1/pets/" + id, HttpMethod.DELETE, withAdminAuth(null), Void.class);
         assertEquals(HttpStatus.NO_CONTENT, deleteResponse.getStatusCode());
 
-        ResponseEntity<Map> getResponse = restTemplate.getForEntity("/pets/" + id, Map.class);
+        ResponseEntity<Map> getResponse = restTemplate.getForEntity("/v1/pets/" + id, Map.class);
         assertEquals(HttpStatus.NOT_FOUND, getResponse.getStatusCode());
     }
 
@@ -165,15 +165,15 @@ class PetControllerIntegrationTest {
     void createPet_missingRequiredFields_returns400() {
         Map<String, Object> body = Map.of("age", 3); // name and species missing
 
-        ResponseEntity<Map> response = restTemplate.exchange("/pets", HttpMethod.POST, withAuth(body), Map.class);
+        ResponseEntity<Map> response = restTemplate.exchange("/v1/pets", HttpMethod.POST, withAuth(body), Map.class);
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
     }
 
     @Test
     void getPets_withSpeciesFilter_returnsOnlyMatchingPets() {
-        restTemplate.exchange("/pets", HttpMethod.POST, withAuth(Map.of("name", "Rex", "species", "Dog")), Map.class);
-        restTemplate.exchange("/pets", HttpMethod.POST, withAuth(Map.of("name", "Luna", "species", "Cat")), Map.class);
+        restTemplate.exchange("/v1/pets", HttpMethod.POST, withAuth(Map.of("name", "Rex", "species", "Dog")), Map.class);
+        restTemplate.exchange("/v1/pets", HttpMethod.POST, withAuth(Map.of("name", "Luna", "species", "Cat")), Map.class);
 
         ResponseEntity<Map> response = restTemplate.getForEntity("/pets?species=Dog", Map.class);
 
@@ -189,8 +189,8 @@ class PetControllerIntegrationTest {
         headers.setContentType(MediaType.APPLICATION_JSON);
         HttpEntity<Object> request = new HttpEntity<>(Map.of("name", "Dupe", "species", "Dog"), headers);
 
-        ResponseEntity<Map> first = restTemplate.exchange("/pets", HttpMethod.POST, request, Map.class);
-        ResponseEntity<Map> second = restTemplate.exchange("/pets", HttpMethod.POST, request, Map.class);
+        ResponseEntity<Map> first = restTemplate.exchange("/v1/pets", HttpMethod.POST, request, Map.class);
+        ResponseEntity<Map> second = restTemplate.exchange("/v1/pets", HttpMethod.POST, request, Map.class);
 
         assertEquals(HttpStatus.CREATED, first.getStatusCode());
         assertEquals(HttpStatus.CREATED, second.getStatusCode());
@@ -200,11 +200,11 @@ class PetControllerIntegrationTest {
     @Test
     void getAuditLog_afterCreate_returnsEntry() {
         ResponseEntity<Map> created = restTemplate.exchange(
-                "/pets", HttpMethod.POST, withAuth(Map.of("name", "AuditPet", "species", "Cat")), Map.class);
+                "/v1/pets", HttpMethod.POST, withAuth(Map.of("name", "AuditPet", "species", "Cat")), Map.class);
         Integer id = (Integer) created.getBody().get("id");
 
         ResponseEntity<Object[]> audit = restTemplate.exchange(
-                "/pets/" + id + "/audit", HttpMethod.GET, withAdminAuth(null), Object[].class);
+                "/v1/pets/" + id + "/audit", HttpMethod.GET, withAdminAuth(null), Object[].class);
 
         assertEquals(HttpStatus.OK, audit.getStatusCode());
         assertTrue(audit.getBody().length >= 1);

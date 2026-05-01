@@ -2,6 +2,8 @@ package com.example.petapi.service;
 
 import com.example.petapi.audit.PetAuditRepository;
 import com.example.petapi.audit.PetAuditService;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import com.example.petapi.dto.CreatePetRequest;
 import com.example.petapi.dto.PetResponse;
 import com.example.petapi.dto.UpdatePetRequest;
@@ -14,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
@@ -40,6 +43,9 @@ class PetServiceTest {
 
     @Mock
     private PetAuditRepository auditRepository;
+
+    @Spy
+    private MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
     @InjectMocks
     private PetService service;
