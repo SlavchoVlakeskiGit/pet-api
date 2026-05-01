@@ -22,7 +22,6 @@ public class PetEventPublisher {
     }
 
     @CircuitBreaker(name = "kafka-publisher", fallbackMethod = "publishFallback")
-    @Bulkhead(name = "kafka-publisher", fallbackMethod = "publishFallback")
     public void publish(Long petId, String petName, String eventType) {
         PetEvent event = new PetEvent(petId, petName, eventType, LocalDateTime.now().toString());
         kafkaTemplate.send(TOPIC, String.valueOf(petId), event)

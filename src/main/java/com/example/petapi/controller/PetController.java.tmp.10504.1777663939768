@@ -81,11 +81,4 @@ public class PetController {
         service.deletePet(id);
         return ResponseEntity.noContent().build();
     }
-
-    @GetMapping("/{id}/audit")
-    @Operation(summary = "Get audit log for a pet (ADMIN only)")
-    @ApiResponse(responseCode = "200", description = "Audit log entries")
-    public ResponseEntity<List<PetAuditLog>> getAuditLog(@PathVariable Long id) {
-        return ResponseEntity.ok(service.getAuditLog(id));
-    }
 }
