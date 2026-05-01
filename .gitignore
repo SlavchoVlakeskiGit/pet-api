@@ -11,3 +11,5 @@ target/
 .vscode/
 
 *.log
+*.tmp.*
+.claude/
