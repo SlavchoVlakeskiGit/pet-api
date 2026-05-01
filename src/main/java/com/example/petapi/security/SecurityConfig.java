@@ -3,6 +3,7 @@ package com.example.petapi.security;
 import com.example.petapi.repository.UserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
@@ -26,7 +27,7 @@ public class SecurityConfig {
     private final UserRepository userRepository;
     private final JwtFilter jwtFilter;
 
-    public SecurityConfig(UserRepository userRepository, JwtFilter jwtFilter) {
+    public SecurityConfig(UserRepository userRepository, @Lazy JwtFilter jwtFilter) {
         this.userRepository = userRepository;
         this.jwtFilter = jwtFilter;
     }
@@ -39,6 +40,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/pets/**").permitAll()
                 .anyRequest().authenticated()
             )

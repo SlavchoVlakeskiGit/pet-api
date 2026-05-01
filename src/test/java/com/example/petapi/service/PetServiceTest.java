@@ -4,6 +4,7 @@ import com.example.petapi.dto.CreatePetRequest;
 import com.example.petapi.dto.PetResponse;
 import com.example.petapi.dto.UpdatePetRequest;
 import com.example.petapi.exception.PetNotFoundException;
+import com.example.petapi.mapper.PetMapper;
 import com.example.petapi.model.Pet;
 import com.example.petapi.repository.PetRepository;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,9 @@ class PetServiceTest {
     @Mock
     private PetRepository repository;
 
+    @Mock
+    private PetMapper mapper;
+
     @InjectMocks
     private PetService service;
 
@@ -32,6 +36,7 @@ class PetServiceTest {
     void getPetById_returnsPet_whenFound() {
         Pet pet = new Pet(1L, "Milo", "Dog", "Jane", 3);
         when(repository.findById(1L)).thenReturn(Optional.of(pet));
+        when(mapper.toResponse(pet)).thenReturn(petResponse(1L, "Milo", "Dog", "Jane", 3));
 
         PetResponse response = service.getPetById(1L);
 
@@ -57,8 +62,12 @@ class PetServiceTest {
         request.setOwnerName("Jane");
         request.setAge(3);
 
+        Pet petEntity = new Pet(null, "Milo", "Dog", "Jane", 3);
         Pet savedPet = new Pet(1L, "Milo", "Dog", "Jane", 3);
-        when(repository.savePet(any(Pet.class))).thenReturn(savedPet);
+
+        when(mapper.toEntity(request)).thenReturn(petEntity);
+        when(repository.savePet(petEntity)).thenReturn(savedPet);
+        when(mapper.toResponse(savedPet)).thenReturn(petResponse(1L, "Milo", "Dog", "Jane", 3));
 
         PetResponse response = service.addPet(request);
 
@@ -71,6 +80,7 @@ class PetServiceTest {
         Pet existingPet = new Pet(1L, "Milo", "Dog", "Jane", 3);
         when(repository.findById(1L)).thenReturn(Optional.of(existingPet));
         when(repository.savePet(existingPet)).thenReturn(existingPet);
+        when(mapper.toResponse(existingPet)).thenReturn(petResponse(1L, "Milo", "Dog", "Jane", 5));
 
         UpdatePetRequest request = new UpdatePetRequest();
         request.setAge(5);
@@ -100,12 +110,23 @@ class PetServiceTest {
     }
 
     @Test
-    void deletePet_callsDeleteById_whenPetExists() {
+    void deletePet_softDeletes_whenPetExists() {
         Pet pet = new Pet(1L, "Milo", "Dog", "Jane", 3);
         when(repository.findById(1L)).thenReturn(Optional.of(pet));
 
         service.deletePet(1L);
 
-        verify(repository).deleteById(1L);
+        assertNotNull(pet.getDeletedAt());
+        verify(repository).savePet(pet);
+    }
+
+    private PetResponse petResponse(Long id, String name, String species, String ownerName, Integer age) {
+        PetResponse r = new PetResponse();
+        r.setId(id);
+        r.setName(name);
+        r.setSpecies(species);
+        r.setOwnerName(ownerName);
+        r.setAge(age);
+        return r;
     }
 }
