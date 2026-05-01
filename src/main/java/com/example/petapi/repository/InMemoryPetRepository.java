@@ -40,4 +40,10 @@ public class InMemoryPetRepository implements PetRepository {
     public void deleteById(Long id) {
         petStore.remove(id);
     }
+
+    @Override
+    public org.springframework.data.domain.Page<com.example.petapi.model.Pet> findAllActive(
+            String species, String ownerName, org.springframework.data.domain.Pageable pageable) {
+        throw new UnsupportedOperationException("Not supported in-memory");
+    }
 }
