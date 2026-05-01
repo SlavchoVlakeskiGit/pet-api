@@ -3,6 +3,7 @@ package com.example.petapi.service;
 import com.example.petapi.dto.CreatePetRequest;
 import com.example.petapi.dto.PetResponse;
 import com.example.petapi.dto.UpdatePetRequest;
+import com.example.petapi.event.PetEventPublisher;
 import com.example.petapi.exception.PetNotFoundException;
 import com.example.petapi.mapper.PetMapper;
 import com.example.petapi.model.Pet;
@@ -28,6 +29,9 @@ class PetServiceTest {
 
     @Mock
     private PetMapper mapper;
+
+    @Mock
+    private PetEventPublisher eventPublisher;
 
     @InjectMocks
     private PetService service;

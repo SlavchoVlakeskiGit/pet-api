@@ -3,6 +3,7 @@ package com.example.petapi.service;
 import com.example.petapi.dto.CreatePetRequest;
 import com.example.petapi.dto.PetResponse;
 import com.example.petapi.dto.UpdatePetRequest;
+import com.example.petapi.event.PetEventPublisher;
 import com.example.petapi.exception.PetNotFoundException;
 import com.example.petapi.mapper.PetMapper;
 import com.example.petapi.model.Pet;
@@ -22,10 +23,12 @@ public class PetService {
 
     private final PetRepository repository;
     private final PetMapper mapper;
+    private final PetEventPublisher eventPublisher;
 
-    public PetService(PetRepository repository, PetMapper mapper) {
+    public PetService(PetRepository repository, PetMapper mapper, PetEventPublisher eventPublisher) {
         this.repository = repository;
         this.mapper = mapper;
+        this.eventPublisher = eventPublisher;
     }
 
     public Page<PetResponse> getAllPets(String species, String ownerName, Pageable pageable) {
@@ -53,6 +56,7 @@ public class PetService {
         Pet pet = mapper.toEntity(request);
         PetResponse response = mapper.toResponse(repository.savePet(pet));
         log.info("Pet created with id: {}", response.getId());
+        eventPublisher.publish(response.getId(), response.getName(), "CREATED");
         return response;
     }
 
@@ -79,6 +83,7 @@ public class PetService {
 
         PetResponse response = mapper.toResponse(repository.savePet(existingPet));
         log.info("Pet with id: {} updated successfully", id);
+        eventPublisher.publish(id, response.getName(), "UPDATED");
         return response;
     }
 
@@ -89,9 +94,11 @@ public class PetService {
                     log.warn("Pet not found with id: {}", id);
                     return new PetNotFoundException(id);
                 });
+        String petName = existingPet.getName();
         existingPet.setDeletedAt(LocalDateTime.now());
         repository.savePet(existingPet);
         log.info("Pet with id: {} soft deleted", id);
+        eventPublisher.publish(id, petName, "DELETED");
     }
 
     private void rejectIfBlank(String value, String fieldName) {
