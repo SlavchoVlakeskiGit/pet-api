@@ -10,9 +10,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.*;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
 import java.util.Map;
 
@@ -27,6 +29,11 @@ class PetControllerIntegrationTest {
     @ServiceConnection
     static MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.0");
 
+    @Container
+    @ServiceConnection
+    static GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:7"))
+            .withExposedPorts(6379);
+
     @Autowired
     private TestRestTemplate restTemplate;
 
@@ -34,6 +41,7 @@ class PetControllerIntegrationTest {
     private JpaPetRepository petRepository;
 
     private String token;
+    private String adminToken;
 
     @BeforeAll
     void setupAuth() {
@@ -42,6 +50,12 @@ class PetControllerIntegrationTest {
         ResponseEntity<Map> loginResponse = restTemplate.postForEntity("/auth/login", credentials, Map.class);
         token = (String) loginResponse.getBody().get("token");
         assertNotNull(token, "Login must return a JWT token");
+
+        // admin user is seeded by DataInitializer on context startup
+        ResponseEntity<Map> adminLogin = restTemplate.postForEntity(
+                "/auth/login", Map.of("username", "admin", "password", "admin123"), Map.class);
+        adminToken = (String) adminLogin.getBody().get("token");
+        assertNotNull(adminToken, "Admin login must return a JWT token");
     }
 
     @BeforeEach
@@ -52,6 +66,13 @@ class PetControllerIntegrationTest {
     private HttpEntity<Object> withAuth(Object body) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + token);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        return new HttpEntity<>(body, headers);
+    }
+
+    private HttpEntity<Object> withAdminAuth(Object body) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + adminToken);
         headers.setContentType(MediaType.APPLICATION_JSON);
         return new HttpEntity<>(body, headers);
     }
@@ -128,7 +149,7 @@ class PetControllerIntegrationTest {
         Integer id = (Integer) created.getBody().get("id");
 
         ResponseEntity<Void> deleteResponse = restTemplate.exchange(
-                "/pets/" + id, HttpMethod.DELETE, withAuth(null), Void.class);
+                "/pets/" + id, HttpMethod.DELETE, withAdminAuth(null), Void.class);
         assertEquals(HttpStatus.NO_CONTENT, deleteResponse.getStatusCode());
 
         ResponseEntity<Map> getResponse = restTemplate.getForEntity("/pets/" + id, Map.class);

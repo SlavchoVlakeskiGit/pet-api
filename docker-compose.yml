@@ -9,6 +9,11 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
 
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
   kafka:
     image: bitnami/kafka:3.7
     ports:
@@ -22,6 +27,11 @@ services:
       - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9094
       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
 
+  zipkin:
+    image: openzipkin/zipkin
+    ports:
+      - "9411:9411"
+
   app:
     build: .
     ports:
@@ -30,10 +40,14 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/petdb
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATA_REDIS_HOST: redis
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
     depends_on:
       - db
+      - redis
       - kafka
+      - zipkin
 
   notification:
     build: ../notification-service
@@ -41,8 +55,10 @@ services:
       - "8081:8081"
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin:9411/api/v2/spans
     depends_on:
       - kafka
+      - zipkin
 
 volumes:
   mysql_data:

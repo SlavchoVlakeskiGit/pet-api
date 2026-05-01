@@ -10,6 +10,8 @@ import com.example.petapi.model.Pet;
 import com.example.petapi.repository.PetRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -37,6 +39,7 @@ public class PetService {
                 .map(mapper::toResponse);
     }
 
+    @Cacheable(value = "pets", key = "#id")
     public PetResponse getPetById(Long id) {
         log.info("Fetching pet with id: {}", id);
         Pet existingPet = repository.findById(id)
@@ -60,6 +63,7 @@ public class PetService {
         return response;
     }
 
+    @CacheEvict(value = "pets", key = "#id")
     public PetResponse updatePet(Long id, UpdatePetRequest request) {
         log.info("Updating pet with id: {}", id);
         Pet existingPet = repository.findById(id)
@@ -87,6 +91,7 @@ public class PetService {
         return response;
     }
 
+    @CacheEvict(value = "pets", key = "#id")
     public void deletePet(Long id) {
         log.info("Soft deleting pet with id: {}", id);
         Pet existingPet = repository.findById(id)
