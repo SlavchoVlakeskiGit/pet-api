@@ -9,6 +9,7 @@ import com.example.petapi.model.Pet;
 import com.example.petapi.repository.PetRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -24,6 +25,7 @@ public class PetService {
 
     public List<PetResponse> getAllPets() {
         return repository.findAll().stream()
+                .filter(pet -> pet.getDeletedAt() == null)
                 .map(mapper::toResponse)
                 .toList();
     }
@@ -31,6 +33,9 @@ public class PetService {
     public PetResponse getPetById(Long id) {
         Pet existingPet = repository.findById(id)
                 .orElseThrow(() -> new PetNotFoundException(id));
+        if (existingPet.getDeletedAt() != null) {
+            throw new PetNotFoundException(id);
+        }
         return mapper.toResponse(existingPet);
     }
 
@@ -42,6 +47,10 @@ public class PetService {
     public PetResponse updatePet(Long id, UpdatePetRequest request) {
         Pet existingPet = repository.findById(id)
                 .orElseThrow(() -> new PetNotFoundException(id));
+
+        if (existingPet.getDeletedAt() != null) {
+            throw new PetNotFoundException(id);
+        }
 
         rejectIfBlank(request.getName(), "name");
         rejectIfBlank(request.getSpecies(), "species");
@@ -55,9 +64,10 @@ public class PetService {
     }
 
     public void deletePet(Long id) {
-        repository.findById(id)
+        Pet existingPet = repository.findById(id)
                 .orElseThrow(() -> new PetNotFoundException(id));
-        repository.deleteById(id);
+        existingPet.setDeletedAt(LocalDateTime.now());
+        repository.savePet(existingPet);
     }
 
     private void rejectIfBlank(String value, String fieldName) {

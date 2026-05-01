@@ -1,8 +1,8 @@
 package com.example.petapi.mapper;
 
 import com.example.petapi.dto.CreatePetRequest;
-import com.example.petapi.dto.PetResponse;         
-import com.example.petapi.model.Pet;                                                                                               import com.example.petapi.model.Pet;
+import com.example.petapi.dto.PetResponse;
+import com.example.petapi.model.Pet;
 import org.mapstruct.Mapper;
 
 @Mapper(componentModel = "spring")
