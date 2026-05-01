@@ -13,6 +13,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.util.List;
 
 @RestController
@@ -27,10 +29,13 @@ public class PetController {
     }
 
     @GetMapping
-    @Operation(summary = "Get all pets")
-    @ApiResponse(responseCode = "200", description = "List of all pets")
-    public ResponseEntity<List<PetResponse>> getAllPets() {
-        return ResponseEntity.ok(service.getAllPets());
+    @Operation(summary = "Get all pets with optional filtering and pagination")
+    @ApiResponse(responseCode = "200", description = "Paginated list of pets")
+    public ResponseEntity<Page<PetResponse>> getAllPets(
+            @RequestParam(required = false) String species,
+            @RequestParam(required = false) String ownerName,
+            Pageable pageable) {
+        return ResponseEntity.ok(service.getAllPets(species, ownerName, pageable));
     }
 
     @GetMapping("/{id}")

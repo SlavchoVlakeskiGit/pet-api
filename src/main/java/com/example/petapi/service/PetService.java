@@ -7,10 +7,11 @@ import com.example.petapi.exception.PetNotFoundException;
 import com.example.petapi.mapper.PetMapper;
 import com.example.petapi.model.Pet;
 import com.example.petapi.repository.PetRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Service
 public class PetService {
@@ -23,11 +24,9 @@ public class PetService {
         this.mapper = mapper;
     }
 
-    public List<PetResponse> getAllPets() {
-        return repository.findAll().stream()
-                .filter(pet -> pet.getDeletedAt() == null)
-                .map(mapper::toResponse)
-                .toList();
+    public Page<PetResponse> getAllPets(String species, String ownerName, Pageable pageable) {
+        return repository.findAllActive(species, ownerName, pageable)
+                .map(mapper::toResponse);
     }
 
     public PetResponse getPetById(Long id) {
