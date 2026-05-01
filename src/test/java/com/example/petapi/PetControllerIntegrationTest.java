@@ -11,6 +11,7 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.*;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.MongoDBContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -33,6 +34,10 @@ class PetControllerIntegrationTest {
     @ServiceConnection
     static GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:7"))
             .withExposedPorts(6379);
+
+    @Container
+    @ServiceConnection
+    static MongoDBContainer mongo = new MongoDBContainer(DockerImageName.parse("mongo:7"));
 
     @Autowired
     private TestRestTemplate restTemplate;
@@ -174,5 +179,34 @@ class PetControllerIntegrationTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(1, response.getBody().get("totalElements"));
+    }
+
+    @Test
+    void createPet_withIdempotencyKey_returnsSameResponseOnDuplicate() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + token);
+        headers.set("Idempotency-Key", "test-key-" + System.nanoTime());
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        HttpEntity<Object> request = new HttpEntity<>(Map.of("name", "Dupe", "species", "Dog"), headers);
+
+        ResponseEntity<Map> first = restTemplate.exchange("/pets", HttpMethod.POST, request, Map.class);
+        ResponseEntity<Map> second = restTemplate.exchange("/pets", HttpMethod.POST, request, Map.class);
+
+        assertEquals(HttpStatus.CREATED, first.getStatusCode());
+        assertEquals(HttpStatus.CREATED, second.getStatusCode());
+        assertEquals(first.getBody().get("id"), second.getBody().get("id"));
+    }
+
+    @Test
+    void getAuditLog_afterCreate_returnsEntry() {
+        ResponseEntity<Map> created = restTemplate.exchange(
+                "/pets", HttpMethod.POST, withAuth(Map.of("name", "AuditPet", "species", "Cat")), Map.class);
+        Integer id = (Integer) created.getBody().get("id");
+
+        ResponseEntity<Object[]> audit = restTemplate.exchange(
+                "/pets/" + id + "/audit", HttpMethod.GET, withAdminAuth(null), Object[].class);
+
+        assertEquals(HttpStatus.OK, audit.getStatusCode());
+        assertTrue(audit.getBody().length >= 1);
     }
 }

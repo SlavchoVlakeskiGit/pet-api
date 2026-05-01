@@ -1,5 +1,7 @@
 package com.example.petapi.service;
 
+import com.example.petapi.audit.PetAuditRepository;
+import com.example.petapi.audit.PetAuditService;
 import com.example.petapi.dto.CreatePetRequest;
 import com.example.petapi.dto.PetResponse;
 import com.example.petapi.dto.UpdatePetRequest;
@@ -32,6 +34,12 @@ class PetServiceTest {
 
     @Mock
     private PetEventPublisher eventPublisher;
+
+    @Mock
+    private PetAuditService auditService;
+
+    @Mock
+    private PetAuditRepository auditRepository;
 
     @InjectMocks
     private PetService service;
