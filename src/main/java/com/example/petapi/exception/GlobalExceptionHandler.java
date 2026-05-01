@@ -1,6 +1,8 @@
 package com.example.petapi.exception;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -11,6 +13,8 @@ import java.util.List;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(PetNotFoundException.class)
     public ResponseEntity<PetApiError> handleNotFound(PetNotFoundException exception) {
@@ -34,6 +38,13 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new PetApiError("Validation failed", validationErrors));
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<PetApiError> handleUnexpected(Exception exception) {
+        log.error("Unexpected error occurred", exception);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new PetApiError("An unexpected error occurred"));
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
