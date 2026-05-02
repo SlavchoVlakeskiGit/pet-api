@@ -20,10 +20,13 @@ public class JwtFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserRepository userRepository;
+    private final TokenBlacklistService blacklistService;
 
-    public JwtFilter(JwtService jwtService, UserRepository userRepository) {
+    public JwtFilter(JwtService jwtService, UserRepository userRepository,
+                     TokenBlacklistService blacklistService) {
         this.jwtService = jwtService;
         this.userRepository = userRepository;
+        this.blacklistService = blacklistService;
     }
 
     @Override
@@ -39,6 +42,12 @@ public class JwtFilter extends OncePerRequestFilter {
         }
 
         String token = authHeader.substring(7);
+
+        if (blacklistService.isBlacklisted(token)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String username = jwtService.extractUsername(token);
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {

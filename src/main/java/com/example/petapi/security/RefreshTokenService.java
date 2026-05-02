@@ -21,7 +21,9 @@ public class RefreshTokenService {
         this.repository = repository;
     }
 
+    @Transactional
     public RefreshToken create(String username) {
+        repository.deleteByUsername(username);
         RefreshToken token = new RefreshToken(
                 UUID.randomUUID().toString(),
                 username,

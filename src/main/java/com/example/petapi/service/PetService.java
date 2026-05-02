@@ -156,7 +156,17 @@ public class PetService {
 
     @Transactional(readOnly = true)
     public List<PetAuditLog> getAuditLog(Long petId) {
+        if (repository.findById(petId).isEmpty()) {
+            throw new PetNotFoundException(petId);
+        }
         return auditRepository.findByPetIdOrderByOccurredAtDesc(petId);
+    }
+
+    @Transactional
+    public int purgeSoftDeleted(LocalDateTime before) {
+        int count = repository.hardDeleteSoftDeletedBefore(before);
+        log.info("Purge: hard-deleted {} pets soft-deleted before {}", count, before);
+        return count;
     }
 
     private void rejectIfBlank(String value, String fieldName) {

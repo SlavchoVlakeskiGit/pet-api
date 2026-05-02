@@ -37,9 +37,14 @@ class ArchitectureTest {
             .should().accessClassesThat().resideInAPackage("..service..");
 
     @ArchTest
-    ArchRule jobs_must_only_access_repositories = noClasses()
+    ArchRule jobs_must_not_access_controllers = noClasses()
             .that().resideInAPackage("..job..")
             .should().accessClassesThat().resideInAPackage("..controller..");
+
+    @ArchTest
+    ArchRule jobs_must_not_access_repositories_directly = noClasses()
+            .that().resideInAPackage("..job..")
+            .should().accessClassesThat().resideInAPackage("..repository..");
 
     @ArchTest
     ArchRule exceptions_must_reside_in_exception_package = classes()

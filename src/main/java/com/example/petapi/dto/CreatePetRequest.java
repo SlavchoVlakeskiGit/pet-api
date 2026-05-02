@@ -2,18 +2,22 @@ package com.example.petapi.dto;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 public class CreatePetRequest {
 
     @NotBlank(message = "Pet name is required")
+    @Size(max = 100, message = "Pet name must not exceed 100 characters")
     private String name;
 
     @NotBlank(message = "Species is required and cannot be empty")
+    @Size(max = 100, message = "Species must not exceed 100 characters")
     private String species;
 
     @Min(value = 0, message = "Pet age must be zero or greater")
     private Integer age;
 
+    @Size(max = 100, message = "Owner name must not exceed 100 characters")
     private String ownerName;
 
     public String getName() { return name; }

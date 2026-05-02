@@ -49,6 +49,7 @@ resource "aws_iam_role_policy" "ecs_execution_secrets" {
       Resource = [
         aws_secretsmanager_secret.db_password.arn,
         aws_secretsmanager_secret.jwt_secret.arn,
+        aws_secretsmanager_secret.analytics_api_key.arn,
       ]
     }]
   })
@@ -127,7 +128,7 @@ resource "aws_ecs_task_definition" "pet_api" {
       { name = "SPRING_DATASOURCE_USERNAME", value = var.db_username },
       { name = "SPRING_DATA_REDIS_HOST", value = aws_elasticache_cluster.redis.cache_nodes[0].address },
       { name = "SPRING_DATA_MONGODB_URI", value = var.mongodb_uri },
-      { name = "SPRING_KAFKA_BOOTSTRAP_SERVERS", value = aws_msk_serverless_cluster.kafka.cluster_name },
+      { name = "SPRING_KAFKA_BOOTSTRAP_SERVERS", value = data.aws_msk_bootstrap_brokers.kafka.bootstrap_brokers_sasl_iam },
     ]
 
     secrets = [
@@ -174,14 +175,16 @@ resource "aws_ecs_task_definition" "analytics" {
     }]
 
     environment = [
+      { name = "SPRING_PROFILES_ACTIVE", value = "prod" },
       { name = "DB_HOST", value = split(":", aws_db_instance.mysql.endpoint)[0] },
       { name = "DB_USERNAME", value = var.db_username },
       { name = "REDIS_HOST", value = aws_elasticache_cluster.redis.cache_nodes[0].address },
-      { name = "KAFKA_BOOTSTRAP_SERVERS", value = aws_msk_serverless_cluster.kafka.cluster_name },
+      { name = "KAFKA_BOOTSTRAP_SERVERS", value = data.aws_msk_bootstrap_brokers.kafka.bootstrap_brokers_sasl_iam },
     ]
 
     secrets = [
       { name = "DB_PASSWORD", valueFrom = aws_secretsmanager_secret.db_password.arn },
+      { name = "ANALYTICS_API_KEY", valueFrom = aws_secretsmanager_secret.analytics_api_key.arn },
     ]
 
     logConfiguration = {

@@ -25,6 +25,10 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
         String requestId = request.getHeader(HEADER);
         if (requestId == null || requestId.isBlank()) {
             requestId = UUID.randomUUID().toString();
+        } else {
+            // Truncate and strip non-printable chars to prevent header injection
+            requestId = requestId.replaceAll("[^\\x20-\\x7E]", "");
+            if (requestId.length() > 64) requestId = requestId.substring(0, 64);
         }
 
         MDC.put(MDC_KEY, requestId);

@@ -20,9 +20,9 @@ spec:
             - containerPort: 8081
           envFrom:
             - configMapRef:
-                name: pet-api-config
+                name: analytics-config
             - secretRef:
-                name: pet-api-secret
+                name: analytics-secret
           env:
             - name: SERVER_PORT
               value: "8081"

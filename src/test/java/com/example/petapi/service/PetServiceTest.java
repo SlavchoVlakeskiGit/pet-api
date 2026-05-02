@@ -21,8 +21,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
 
+import java.time.LocalDateTime;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -121,6 +124,18 @@ class PetServiceTest {
     }
 
     @Test
+    void updatePet_throwsPetNotFoundException_whenPetIsSoftDeleted() {
+        Pet deletedPet = new Pet(1L, "Milo", "Dog", "Jane", 3);
+        deletedPet.setDeletedAt(LocalDateTime.now().minusDays(1));
+        when(repository.findById(1L)).thenReturn(Optional.of(deletedPet));
+
+        UpdatePetRequest request = new UpdatePetRequest();
+        request.setAge(5);
+
+        assertThrows(PetNotFoundException.class, () -> service.updatePet(1L, request));
+    }
+
+    @Test
     void deletePet_throwsPetNotFoundException_whenNotFound() {
         when(repository.findById(99L)).thenReturn(Optional.empty());
 
@@ -136,6 +151,45 @@ class PetServiceTest {
 
         assertNotNull(pet.getDeletedAt());
         verify(repository).savePet(pet);
+    }
+
+    @Test
+    void getPetById_throwsPetNotFoundException_whenPetIsSoftDeleted() {
+        Pet deletedPet = new Pet(1L, "Milo", "Dog", "Jane", 3);
+        deletedPet.setDeletedAt(LocalDateTime.now().minusDays(1));
+        when(repository.findById(1L)).thenReturn(Optional.of(deletedPet));
+
+        assertThrows(PetNotFoundException.class, () -> service.getPetById(1L));
+    }
+
+    @Test
+    void addPet_publishesEventWithCorrectSpecies() {
+        CreatePetRequest request = new CreatePetRequest();
+        request.setName("Luna");
+        request.setSpecies("Cat");
+        request.setOwnerName("Alice");
+        request.setAge(2);
+
+        Pet petEntity = new Pet(null, "Luna", "Cat", "Alice", 2);
+        Pet savedPet = new Pet(2L, "Luna", "Cat", "Alice", 2);
+
+        when(mapper.toEntity(request)).thenReturn(petEntity);
+        when(repository.savePet(petEntity)).thenReturn(savedPet);
+        when(mapper.toResponse(savedPet)).thenReturn(petResponse(2L, "Luna", "Cat", "Alice", 2));
+
+        service.addPet(request);
+
+        verify(eventPublisher).publish(eq(2L), eq("Luna"), eq("Cat"), eq("CREATED"));
+    }
+
+    @Test
+    void deletePet_publishesEventWithCorrectSpecies() {
+        Pet pet = new Pet(1L, "Milo", "Dog", "Jane", 3);
+        when(repository.findById(1L)).thenReturn(Optional.of(pet));
+
+        service.deletePet(1L);
+
+        verify(eventPublisher).publish(eq(1L), eq("Milo"), eq("Dog"), eq("DELETED"));
     }
 
     private PetResponse petResponse(Long id, String name, String species, String ownerName, Integer age) {

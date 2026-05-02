@@ -9,6 +9,11 @@ resource "random_password" "jwt_secret" {
   special = false
 }
 
+resource "random_password" "analytics_api_key" {
+  length  = 48
+  special = false
+}
+
 resource "aws_secretsmanager_secret" "db_password" {
   name                    = "pet-api/db-password"
   recovery_window_in_days = 7
@@ -27,4 +32,14 @@ resource "aws_secretsmanager_secret" "jwt_secret" {
 resource "aws_secretsmanager_secret_version" "jwt_secret" {
   secret_id     = aws_secretsmanager_secret.jwt_secret.id
   secret_string = random_password.jwt_secret.result
+}
+
+resource "aws_secretsmanager_secret" "analytics_api_key" {
+  name                    = "pet-api/analytics-api-key"
+  recovery_window_in_days = 7
+}
+
+resource "aws_secretsmanager_secret_version" "analytics_api_key" {
+  secret_id     = aws_secretsmanager_secret.analytics_api_key.id
+  secret_string = random_password.analytics_api_key.result
 }

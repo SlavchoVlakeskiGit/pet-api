@@ -4,6 +4,7 @@ import com.example.petapi.model.Pet;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,4 +19,6 @@ public interface PetRepository {
     void deleteById(Long id);
 
     Page<Pet> findAllActive(String species, String ownerName, Pageable pageable);
+
+    int hardDeleteSoftDeletedBefore(LocalDateTime before);
 }

@@ -18,8 +18,14 @@ public class Pet {
 
     @Version
     private Long version;
+
+    @Column(nullable = false, length = 100)
     private String name;
+
+    @Column(nullable = false, length = 100)
     private String species;
+
+    @Column(length = 100)
     private String ownerName;
     private Integer age;
 
