@@ -25,6 +25,10 @@ target/
 *.sw[a-p]
 *~
 
+# Editor backup/patch artifacts
+*.orig
+*.bak
+
 # Terraform state (for future cloud infra)
 terraform/.terraform/
 terraform/*.tfstate

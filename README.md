@@ -58,7 +58,7 @@ Notification Service (Kafka consumer + DLQ)
 - **Dead Letter Queue** — the notification service retries failed events 3× with exponential backoff via `@RetryableTopic`; events that exhaust retries land in `pet-events-dlt` and are handled by `@DltHandler`
 
 ### Data
-- **MySQL** — primary relational store, managed by Flyway (5 versioned migrations)
+- **MySQL** — primary relational store, managed by Flyway (6 versioned migrations)
 - **MongoDB** — audit log collection; second data store demonstrating multi-database architecture
 - **Redis** — shared cache for responses, idempotency keys, and rate limit counters
 - **Flyway** — versioned, repeatable database migrations applied on startup
@@ -162,7 +162,7 @@ This starts the full stack automatically.
 | Grafana Dashboards | http://localhost:3000 (admin / admin) |
 | Prometheus UI | http://localhost:9090 |
 
-A default admin user (`admin` / `admin123`) is created automatically on first startup.
+A default admin user (`admin` / `Admin1234`) is created automatically on first startup (non-production only).
 
 ### Run locally
 
@@ -185,6 +185,8 @@ kubectl apply -f k8s/kafka.yaml
 kubectl apply -f k8s/zipkin.yaml
 kubectl apply -f k8s/app.yaml
 kubectl apply -f k8s/notification.yaml
+kubectl apply -f k8s/analytics-configmap.yaml
+kubectl apply -f k8s/analytics-secret.yaml
 kubectl apply -f k8s/analytics.yaml
 kubectl apply -f k8s/ingress.yaml
 kubectl apply -f k8s/hpa.yaml
@@ -214,7 +216,7 @@ kubectl apply -f k8s/hpa.yaml
 
 ### Rate Limiting
 
-All endpoints are rate-limited to **100 requests per minute** per user. Responses include:
+All non-actuator endpoints are rate-limited to **100 requests per minute** per user. Responses include:
 
 ```
 X-RateLimit-Limit: 100
@@ -243,7 +245,7 @@ Sending the same request again with the same `Idempotency-Key` returns the origi
 # Login
 curl -X POST http://localhost/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"admin","password":"admin123"}'
+  -d '{"username":"admin","password":"Admin1234"}'
 
 # Create a pet
 curl -X POST http://localhost/v1/pets \
@@ -268,8 +270,8 @@ Requires Docker (for Testcontainers).
 
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| GET | `/v1/stats` | Overall totals: created, updated, deleted, active, by species | Public |
-| GET | `/v1/stats/daily?days=30` | Daily event breakdown for the past N days (max 90) | Public |
+| GET | `/v1/stats` | Overall totals: created, updated, deleted, active, by species | X-API-Key header |
+| GET | `/v1/stats/daily?days=30` | Daily event breakdown for the past N days (max 90) | X-API-Key header |
 
 ## Related
 
