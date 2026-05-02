@@ -50,7 +50,8 @@ class PetControllerIntegrationTest {
 
     @BeforeAll
     void setupAuth() {
-        Map<String, String> credentials = Map.of("username", "testuser", "password", "secret123");
+        // password must satisfy: min 8 chars, 1 uppercase, 1 digit
+        Map<String, String> credentials = Map.of("username", "testuser", "password", "Secret123");
         restTemplate.postForEntity("/v1/auth/register", credentials, Void.class);
         ResponseEntity<Map> loginResponse = restTemplate.postForEntity("/v1/auth/login", credentials, Map.class);
         token = (String) loginResponse.getBody().get("token");
@@ -175,10 +176,72 @@ class PetControllerIntegrationTest {
         restTemplate.exchange("/v1/pets", HttpMethod.POST, withAuth(Map.of("name", "Rex", "species", "Dog")), Map.class);
         restTemplate.exchange("/v1/pets", HttpMethod.POST, withAuth(Map.of("name", "Luna", "species", "Cat")), Map.class);
 
-        ResponseEntity<Map> response = restTemplate.getForEntity("/pets?species=Dog", Map.class);
+        ResponseEntity<Map> response = restTemplate.getForEntity("/v1/pets?species=Dog", Map.class);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(1, response.getBody().get("totalElements"));
+    }
+
+    @Test
+    void deletePet_asUser_returns403() {
+        ResponseEntity<Map> created = restTemplate.exchange(
+                "/v1/pets", HttpMethod.POST, withAuth(Map.of("name", "ToDelete", "species", "Cat")), Map.class);
+        Integer id = (Integer) created.getBody().get("id");
+
+        ResponseEntity<Void> response = restTemplate.exchange(
+                "/v1/pets/" + id, HttpMethod.DELETE, withAuth(null), Void.class);
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+    }
+
+    @Test
+    void getAuditLog_asUser_returns403() {
+        ResponseEntity<Map> created = restTemplate.exchange(
+                "/v1/pets", HttpMethod.POST, withAuth(Map.of("name", "AuditTest", "species", "Dog")), Map.class);
+        Integer id = (Integer) created.getBody().get("id");
+
+        ResponseEntity<Object> response = restTemplate.exchange(
+                "/v1/pets/" + id + "/audit", HttpMethod.GET, withAuth(null), Object.class);
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+    }
+
+    @Test
+    void getPetById_withMatchingEtag_returns304() {
+        ResponseEntity<Map> created = restTemplate.exchange(
+                "/v1/pets", HttpMethod.POST, withAuth(Map.of("name", "EtagPet", "species", "Bird")), Map.class);
+        Integer id = (Integer) created.getBody().get("id");
+
+        ResponseEntity<Map> first = restTemplate.getForEntity("/v1/pets/" + id, Map.class);
+        String etag = first.getHeaders().getETag();
+        assertNotNull(etag, "Response must include an ETag header");
+
+        HttpHeaders ifNoneMatch = new HttpHeaders();
+        ifNoneMatch.set("If-None-Match", etag);
+        ResponseEntity<Void> second = restTemplate.exchange(
+                "/v1/pets/" + id, HttpMethod.GET, new HttpEntity<>(ifNoneMatch), Void.class);
+
+        assertEquals(HttpStatus.NOT_MODIFIED, second.getStatusCode());
+    }
+
+    @Test
+    void rateLimitExceeded_returns429() {
+        String uniqueUser = "ratelimit_" + System.nanoTime();
+        restTemplate.postForEntity("/v1/auth/register",
+                Map.of("username", uniqueUser, "password", "Secret123"), Map.class);
+        ResponseEntity<Map> loginResp = restTemplate.postForEntity("/v1/auth/login",
+                Map.of("username", uniqueUser, "password", "Secret123"), Map.class);
+        String rlToken = (String) loginResp.getBody().get("token");
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + rlToken);
+        HttpEntity<Void> req = new HttpEntity<>(headers);
+
+        ResponseEntity<Object> last = null;
+        for (int i = 0; i <= 100; i++) {
+            last = restTemplate.exchange("/v1/pets", HttpMethod.GET, req, Object.class);
+        }
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, last.getStatusCode());
     }
 
     @Test

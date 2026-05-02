@@ -1,5 +1,9 @@
 # Pet API
 
+[![CI](https://github.com/SlavchoVlakeskiGit/pet-api/actions/workflows/ci.yml/badge.svg)](https://github.com/SlavchoVlakeskiGit/pet-api/actions/workflows/ci.yml)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=SlavchoVlakeskiGit_pet-api&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=SlavchoVlakeskiGit_pet-api)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=SlavchoVlakeskiGit_pet-api&metric=coverage)](https://sonarcloud.io/summary/new_code?id=SlavchoVlakeskiGit_pet-api)
+
 A production-grade REST API for managing pets, built with Spring Boot. Demonstrates real-world backend engineering practices across security, resilience, observability, event-driven architecture, and infrastructure.
 
 ## Architecture
@@ -61,13 +65,15 @@ Notification Service (Kafka consumer + DLQ)
 ### Infrastructure
 - **Nginx** — reverse proxy in front of the app; forwards `X-Forwarded-For` and `X-Real-IP`
 - **Docker Compose** — single command starts the full stack: MySQL, Redis, MongoDB, Kafka, Zipkin, Nginx, Pet API, Notification Service
-- **Kubernetes** — full `k8s/` manifest set: namespace, configmap, secret, persistent volumes for MySQL and MongoDB, deployments for all services, pet-api with 2 replicas and readiness/liveness probes, Nginx Ingress
+- **Kubernetes** — full `k8s/` manifest set: namespace, configmap, secret, persistent volumes for MySQL and MongoDB, deployments for all services, pet-api with 2 replicas, resource requests/limits, readiness/liveness probes, HPA (scales 2–5 pods on CPU/memory), and Nginx Ingress
 - **Multi-stage Dockerfile** — Maven build stage + JRE-only runtime image; build tools are not in the production image
 
 ### Testing & CI
-- **Integration tests** — Testcontainers spins up real MySQL, Redis, and MongoDB containers; 11 tests cover full CRUD, auth checks, filters, soft delete, idempotency deduplication, and audit log
+- **Integration tests** — Testcontainers spins up real MySQL, Redis, and MongoDB containers; 16 tests cover full CRUD, auth checks, filters, soft delete, idempotency deduplication, audit log, RBAC enforcement, ETag 304 responses, and rate limit 429 responses
 - **Unit tests** — Mockito-based service tests covering all business logic paths
-- **GitHub Actions** — runs the full test suite on every push and pull request
+- **ArchUnit** — architecture rules enforced at test time (layered dependencies, no cross-layer shortcuts)
+- **GitHub Actions** — runs the full test suite, generates JaCoCo coverage, runs SonarCloud analysis, and pushes a Docker image to GHCR on every merge to main
+- **OWASP Dependency Check** — weekly workflow scans for known CVEs in third-party libraries; fails the build on CVSS ≥ 7
 
 ## Tech Stack
 
@@ -113,6 +119,8 @@ This starts the full stack automatically.
 | Actuator Health | http://localhost/actuator/health |
 | Prometheus Metrics | http://localhost/actuator/prometheus |
 | Zipkin UI | http://localhost:9411 |
+| Grafana Dashboards | http://localhost:3000 (admin / admin) |
+| Prometheus UI | http://localhost:9090 |
 
 A default admin user (`admin` / `admin123`) is created automatically on first startup.
 
@@ -138,6 +146,7 @@ kubectl apply -f k8s/zipkin.yaml
 kubectl apply -f k8s/app.yaml
 kubectl apply -f k8s/notification.yaml
 kubectl apply -f k8s/ingress.yaml
+kubectl apply -f k8s/hpa.yaml
 ```
 
 ## API Overview
@@ -146,21 +155,21 @@ kubectl apply -f k8s/ingress.yaml
 
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| POST | `/auth/register` | Register a new user | Public |
-| POST | `/auth/login` | Login — returns access token + refresh token | Public |
-| POST | `/auth/refresh` | Exchange refresh token for a new access token | Public |
-| POST | `/auth/logout` | Invalidate refresh token | Required |
+| POST | `/v1/auth/register` | Register a new user | Public |
+| POST | `/v1/auth/login` | Login — returns access token + refresh token | Public |
+| POST | `/v1/auth/refresh` | Exchange refresh token for a new access token | Public |
+| POST | `/v1/auth/logout` | Invalidate refresh token | Required |
 
 ### Pets
 
 | Method | Endpoint | Description | Auth |
 |---|---|---|---|
-| GET | `/pets` | List pets (paginated, filterable by species/ownerName) | Public |
-| GET | `/pets/{id}` | Get pet by ID (Redis cached) | Public |
-| POST | `/pets` | Create a pet (supports `Idempotency-Key` header) | USER or ADMIN |
-| PATCH | `/pets/{id}` | Partially update a pet | USER or ADMIN |
-| DELETE | `/pets/{id}` | Soft delete a pet | ADMIN only |
-| GET | `/pets/{id}/audit` | Full audit history for a pet | ADMIN only |
+| GET | `/v1/pets` | List pets (paginated, filterable by species/ownerName) | Public |
+| GET | `/v1/pets/{id}` | Get pet by ID (Redis cached, ETag supported) | Public |
+| POST | `/v1/pets` | Create a pet (supports `Idempotency-Key` header) | USER or ADMIN |
+| PATCH | `/v1/pets/{id}` | Partially update a pet | USER or ADMIN |
+| DELETE | `/v1/pets/{id}` | Soft delete a pet | ADMIN only |
+| GET | `/v1/pets/{id}/audit` | Full audit history for a pet | ADMIN only |
 
 ### Rate Limiting
 
@@ -178,7 +187,7 @@ Exceeding the limit returns `429 Too Many Requests` with a `Retry-After: 60` hea
 To safely retry `POST /pets` without creating duplicates:
 
 ```bash
-curl -X POST http://localhost/pets \
+curl -X POST http://localhost/v1/pets \
   -H "Authorization: Bearer <token>" \
   -H "Idempotency-Key: my-unique-key-123" \
   -H "Content-Type: application/json" \
@@ -191,18 +200,18 @@ Sending the same request again with the same `Idempotency-Key` returns the origi
 
 ```bash
 # Login
-curl -X POST http://localhost/auth/login \
+curl -X POST http://localhost/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"admin123"}'
 
 # Create a pet
-curl -X POST http://localhost/pets \
+curl -X POST http://localhost/v1/pets \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"name":"Rex","species":"Dog","age":3,"ownerName":"John"}'
 
 # Get audit log (admin only)
-curl http://localhost/pets/1/audit \
+curl http://localhost/v1/pets/1/audit \
   -H "Authorization: Bearer <token>"
 ```
 

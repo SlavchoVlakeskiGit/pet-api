@@ -21,6 +21,9 @@
 
       <properties>
           <java.version>17</java.version>
+          <sonar.organization>slavchovlakeskigit</sonar.organization>
+          <sonar.projectKey>SlavchoVlakeskiGit_pet-api</sonar.projectKey>
+          <sonar.host.url>https://sonarcloud.io</sonar.host.url>
       </properties>
 
       <dependencies>
@@ -180,6 +183,12 @@
               <artifactId>logstash-logback-encoder</artifactId>
               <version>7.4</version>
           </dependency>
+
+          <dependency>
+              <groupId>org.jsoup</groupId>
+              <artifactId>jsoup</artifactId>
+              <version>1.17.2</version>
+          </dependency>
       </dependencies>
 
       <build>
@@ -187,6 +196,32 @@
               <plugin>
                   <groupId>org.springframework.boot</groupId>
                   <artifactId>spring-boot-maven-plugin</artifactId>
+              </plugin>
+
+              <plugin>
+                  <groupId>org.jacoco</groupId>
+                  <artifactId>jacoco-maven-plugin</artifactId>
+                  <version>0.8.11</version>
+                  <executions>
+                      <execution>
+                          <goals><goal>prepare-agent</goal></goals>
+                      </execution>
+                      <execution>
+                          <id>report</id>
+                          <phase>test</phase>
+                          <goals><goal>report</goal></goals>
+                      </execution>
+                  </executions>
+              </plugin>
+
+              <plugin>
+                  <groupId>org.owasp</groupId>
+                  <artifactId>dependency-check-maven</artifactId>
+                  <version>9.0.9</version>
+                  <configuration>
+                      <failBuildOnCVSS>7</failBuildOnCVSS>
+                      <formats>HTML,JSON</formats>
+                  </configuration>
               </plugin>
 
               <plugin>

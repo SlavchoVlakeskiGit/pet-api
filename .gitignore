@@ -13,3 +13,26 @@ target/
 *.log
 *.tmp.*
 .claude/
+
+# Environment and secrets
+.env
+*.env
+
+# macOS
+.DS_Store
+
+# Vim / Emacs swap files
+*.sw[a-p]
+*~
+
+# Terraform state (for future cloud infra)
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/*.tfvars
+
+# Spring Boot generated
+HELP.md
+
+# Test output
+test-output/
