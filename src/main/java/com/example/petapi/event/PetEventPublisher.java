@@ -23,8 +23,8 @@ public class PetEventPublisher {
 
     @CircuitBreaker(name = "kafka-publisher", fallbackMethod = "publishFallback")
     @Bulkhead(name = "kafka-publisher", fallbackMethod = "publishFallback")
-    public void publish(Long petId, String petName, String eventType) {
-        PetEvent event = new PetEvent(petId, petName, eventType, LocalDateTime.now().toString());
+    public void publish(Long petId, String petName, String species, String eventType) {
+        PetEvent event = new PetEvent(petId, petName, eventType, LocalDateTime.now().toString(), species);
         kafkaTemplate.send(TOPIC, String.valueOf(petId), event)
                 .whenComplete((result, ex) -> {
                     if (ex != null) {
@@ -35,7 +35,7 @@ public class PetEventPublisher {
                 });
     }
 
-    void publishFallback(Long petId, String petName, String eventType, Exception ex) {
+    void publishFallback(Long petId, String petName, String species, String eventType, Exception ex) {
         log.warn("Circuit breaker open — skipping {} event for pet id={}: {}", eventType, petId, ex.getMessage());
     }
 }

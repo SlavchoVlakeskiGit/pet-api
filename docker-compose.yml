@@ -114,6 +114,24 @@ services:
       zipkin:
         condition: service_started
 
+  analytics:
+    build: ./analytics-service
+    environment:
+      DB_HOST: db
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "8081:8081"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
   notification:
     build: ../notification-service
     environment:

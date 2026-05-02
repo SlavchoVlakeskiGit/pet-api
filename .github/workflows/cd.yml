@@ -1,0 +1,114 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: [CI]
+    branches: [main]
+    types: [completed]
+
+jobs:
+  deploy:
+    name: Deploy to AWS ECS
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    environment: production
+
+    steps:
+      - name: Checkout at CI commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build pet-api JAR
+        run: |
+          chmod +x mvnw
+          ./mvnw package -DskipTests -pl . --also-make
+
+      - name: Build and push pet-api image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          docker build \
+            -t $REGISTRY/pet-api:$IMAGE_TAG \
+            -t $REGISTRY/pet-api:latest \
+            .
+          docker push $REGISTRY/pet-api:$IMAGE_TAG
+          docker push $REGISTRY/pet-api:latest
+
+      - name: Build analytics-service JAR
+        run: |
+          cd analytics-service
+          mvn package -DskipTests -q
+
+      - name: Build and push analytics-service image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          docker build \
+            -t $REGISTRY/analytics-service:$IMAGE_TAG \
+            -t $REGISTRY/analytics-service:latest \
+            ./analytics-service
+          docker push $REGISTRY/analytics-service:$IMAGE_TAG
+          docker push $REGISTRY/analytics-service:latest
+
+      - name: Download pet-api task definition
+        run: |
+          aws ecs describe-task-definition --task-definition pet-api \
+            --query taskDefinition > /tmp/pet-api-task-def.json
+
+      - name: Update pet-api task definition image
+        id: pet-api-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: /tmp/pet-api-task-def.json
+          container-name: pet-api
+          image: ${{ steps.login-ecr.outputs.registry }}/pet-api:${{ github.event.workflow_run.head_sha }}
+
+      - name: Deploy pet-api to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.pet-api-task-def.outputs.task-definition }}
+          service: pet-api-service
+          cluster: pet-api-cluster
+          wait-for-service-stability: true
+
+      - name: Download analytics task definition
+        run: |
+          aws ecs describe-task-definition --task-definition analytics-service \
+            --query taskDefinition > /tmp/analytics-task-def.json
+
+      - name: Update analytics task definition image
+        id: analytics-task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: /tmp/analytics-task-def.json
+          container-name: analytics-service
+          image: ${{ steps.login-ecr.outputs.registry }}/analytics-service:${{ github.event.workflow_run.head_sha }}
+
+      - name: Deploy analytics-service to ECS
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.analytics-task-def.outputs.task-definition }}
+          service: analytics-service
+          cluster: pet-api-cluster
+          wait-for-service-stability: true

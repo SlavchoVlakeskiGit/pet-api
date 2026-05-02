@@ -12,14 +12,15 @@ A production-grade REST API for managing pets, built with Spring Boot. Demonstra
 Client
   │
   ▼
-Nginx (reverse proxy, port 80)
+Nginx / AWS ALB (reverse proxy)
   │
-  ▼
-Pet API (Spring Boot, port 8080)
-  ├── MySQL       (persistence + Flyway migrations)
-  ├── Redis       (response caching, idempotency keys, rate limiting)
-  ├── MongoDB     (audit log)
-  ├── Kafka       (publishes pet lifecycle events)
+  ├──────────────────────────────────────────────────────┐
+  ▼                                                      ▼
+Pet API (Spring Boot, port 8080)             Analytics Service (port 8081)
+  ├── MySQL       (persistence + Flyway)        ├── MySQL   (daily_stats)
+  ├── Redis       (cache, rate limit, idempotency)├── Redis  (counters)
+  ├── MongoDB     (audit log)                    └── Kafka  (consumer)
+  ├── Kafka       (publishes pet events)
   └── Zipkin      (distributed tracing)
         │
         ▼
@@ -62,6 +63,14 @@ Notification Service (Kafka consumer + DLQ)
 - **Redis** — shared cache for responses, idempotency keys, and rate limit counters
 - **Flyway** — versioned, repeatable database migrations applied on startup
 
+### Analytics Service
+
+- **Kafka consumer** — subscribes to `pet-events` as a separate consumer group (`analytics-service`); all events are processed independently from the notification service
+- **Redis counters** — atomic `INCR` operations for total CREATED/UPDATED/DELETED counts and per-species CREATED counts
+- **MySQL daily stats** — `daily_stats` table with a unique constraint on `(date, action)`; transactionally upserted on every event
+- **REST API** — `GET /v1/stats` (overall totals + active pets + species breakdown), `GET /v1/stats/daily?days=30` (time-series data)
+- **Retry + DLQ** — same `@RetryableTopic` / `@DltHandler` pattern as notification service
+
 ### Infrastructure
 - **Nginx** — reverse proxy in front of the app; forwards `X-Forwarded-For` and `X-Real-IP`
 - **Docker Compose** — single command starts the full stack: MySQL, Redis, MongoDB, Kafka, Zipkin, Nginx, Pet API, Notification Service
@@ -74,6 +83,34 @@ Notification Service (Kafka consumer + DLQ)
 - **ArchUnit** — architecture rules enforced at test time (layered dependencies, no cross-layer shortcuts)
 - **GitHub Actions** — runs the full test suite, generates JaCoCo coverage, runs SonarCloud analysis, and pushes a Docker image to GHCR on every merge to main
 - **OWASP Dependency Check** — weekly workflow scans for known CVEs in third-party libraries; fails the build on CVSS ≥ 7
+
+## Cloud Infrastructure (AWS)
+
+The `terraform/` directory contains a complete, production-grade AWS deployment:
+
+| Resource | AWS Service |
+|---|---|
+| Container runtime | ECS Fargate (pet-api + analytics-service) |
+| Container registry | ECR (with image scanning + lifecycle policies) |
+| Load balancer | Application Load Balancer (HTTP → HTTPS redirect, path routing) |
+| Primary database | RDS MySQL 8 (encrypted, automated backups, optional Multi-AZ) |
+| Cache / rate limit | ElastiCache Redis 7 (private subnet) |
+| Message broker | MSK Serverless (IAM auth) |
+| Secrets | AWS Secrets Manager (DB password, JWT secret — injected into ECS tasks) |
+| Networking | VPC with public/private subnets across 2 AZs, NAT Gateway, IGW |
+| Auto-scaling | ECS Application Auto Scaling on CPU utilisation (2–5 tasks) |
+| Observability | CloudWatch Container Insights + 30-day log retention |
+
+### Deploy to AWS
+
+```bash
+cd terraform
+terraform init
+terraform plan -out=tfplan
+terraform apply tfplan
+```
+
+Required GitHub Actions secrets for CD: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`.
 
 ## Tech Stack
 
@@ -95,7 +132,8 @@ Notification Service (Kafka consumer + DLQ)
 | CI | GitHub Actions |
 | Containerisation | Docker + Docker Compose + multi-stage Dockerfile |
 | Orchestration | Kubernetes (manifests in `k8s/`) |
-| Reverse Proxy | Nginx |
+| Reverse Proxy | Nginx / AWS ALB |
+| Cloud IaC | Terraform (AWS: ECS, RDS, ElastiCache, MSK, ALB, VPC) |
 
 ## Getting Started
 
@@ -115,7 +153,9 @@ This starts the full stack automatically.
 | Service | URL |
 |---|---|
 | Pet API (via Nginx) | http://localhost |
-| Swagger UI | http://localhost/swagger-ui.html |
+| Analytics Service | http://localhost:8081 |
+| Swagger UI (pets) | http://localhost/swagger-ui.html |
+| Swagger UI (analytics) | http://localhost:8081/swagger-ui.html |
 | Actuator Health | http://localhost/actuator/health |
 | Prometheus Metrics | http://localhost/actuator/prometheus |
 | Zipkin UI | http://localhost:9411 |
@@ -145,6 +185,7 @@ kubectl apply -f k8s/kafka.yaml
 kubectl apply -f k8s/zipkin.yaml
 kubectl apply -f k8s/app.yaml
 kubectl apply -f k8s/notification.yaml
+kubectl apply -f k8s/analytics.yaml
 kubectl apply -f k8s/ingress.yaml
 kubectl apply -f k8s/hpa.yaml
 ```
@@ -222,6 +263,13 @@ Requires Docker (for Testcontainers).
 ```bash
 ./mvnw test
 ```
+
+### Analytics
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| GET | `/v1/stats` | Overall totals: created, updated, deleted, active, by species | Public |
+| GET | `/v1/stats/daily?days=30` | Daily event breakdown for the past N days (max 90) | Public |
 
 ## Related
 

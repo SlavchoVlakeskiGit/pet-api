@@ -12,8 +12,11 @@ import com.example.petapi.mapper.PetMapper;
 import com.example.petapi.model.Pet;
 import com.example.petapi.repository.PetRepository;
 import io.github.resilience4j.retry.annotation.Retry;
+import io.micrometer.core.annotation.Timed;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.jsoup.Jsoup;
+import org.jsoup.safety.Safelist;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
@@ -61,6 +64,7 @@ public class PetService {
                 .map(mapper::toResponse);
     }
 
+    @Timed(value = "pets.get.duration", description = "Time to fetch a pet by ID")
     @Cacheable(value = "pets", key = "#id")
     @Retry(name = "pet-db")
     public PetResponse getPetById(Long id) {
@@ -77,19 +81,27 @@ public class PetService {
         return mapper.toResponse(existingPet);
     }
 
+    @Timed(value = "pets.create.duration", description = "Time to create a pet")
     public PetResponse addPet(CreatePetRequest request) {
+        request.setName(sanitize(request.getName()));
+        request.setSpecies(sanitize(request.getSpecies()));
+        request.setOwnerName(sanitize(request.getOwnerName()));
         log.info("Creating new pet with name: {}", request.getName());
         Pet pet = mapper.toEntity(request);
         PetResponse response = mapper.toResponse(repository.savePet(pet));
         log.info("Pet created with id: {}", response.getId());
-        eventPublisher.publish(response.getId(), response.getName(), "CREATED");
+        eventPublisher.publish(response.getId(), response.getName(), response.getSpecies(), "CREATED");
         auditService.log(response.getId(), response.getName(), "CREATED", currentUser());
         petsCreatedCounter.increment();
         return response;
     }
 
+    @Timed(value = "pets.update.duration", description = "Time to update a pet")
     @CacheEvict(value = "pets", key = "#id")
     public PetResponse updatePet(Long id, UpdatePetRequest request) {
+        if (request.getName() != null) request.setName(sanitize(request.getName()));
+        if (request.getSpecies() != null) request.setSpecies(sanitize(request.getSpecies()));
+        if (request.getOwnerName() != null) request.setOwnerName(sanitize(request.getOwnerName()));
         log.info("Updating pet with id: {}", id);
         Pet existingPet = repository.findById(id)
                 .orElseThrow(() -> {
@@ -112,7 +124,7 @@ public class PetService {
 
         PetResponse response = mapper.toResponse(repository.savePet(existingPet));
         log.info("Pet with id: {} updated successfully", id);
-        eventPublisher.publish(id, response.getName(), "UPDATED");
+        eventPublisher.publish(id, response.getName(), response.getSpecies(), "UPDATED");
         auditService.log(id, response.getName(), "UPDATED", currentUser());
         petsUpdatedCounter.increment();
         return response;
@@ -127,10 +139,11 @@ public class PetService {
                     return new PetNotFoundException(id);
                 });
         String petName = existingPet.getName();
+        String petSpecies = existingPet.getSpecies();
         existingPet.setDeletedAt(LocalDateTime.now());
         repository.savePet(existingPet);
         log.info("Pet with id: {} soft deleted", id);
-        eventPublisher.publish(id, petName, "DELETED");
+        eventPublisher.publish(id, petName, petSpecies, "DELETED");
         auditService.log(id, petName, "DELETED", currentUser());
         petsDeletedCounter.increment();
     }
@@ -143,6 +156,11 @@ public class PetService {
         if (value != null && value.isBlank()) {
             throw new IllegalArgumentException("Pet " + fieldName + " must not be blank");
         }
+    }
+
+    private String sanitize(String value) {
+        if (value == null) return null;
+        return Jsoup.clean(value, Safelist.none()).trim();
     }
 
     private String currentUser() {
