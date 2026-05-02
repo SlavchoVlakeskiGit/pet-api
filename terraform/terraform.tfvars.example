@@ -1,0 +1,30 @@
+# ---------------------------------------------------------------
+# Terraform variable values — copy to terraform.tfvars and fill in.
+# terraform.tfvars is gitignored; never commit real secrets.
+# ---------------------------------------------------------------
+
+aws_region    = "us-east-1"
+environment   = "prod"
+
+# RDS instance size — db.t3.micro is free-tier eligible
+db_instance_class = "db.t3.micro"
+db_name           = "petdb"
+db_username       = "petapi"
+
+# Enable Multi-AZ for production HA (costs 2x)
+db_multi_az = false
+
+# ElastiCache node size
+redis_node_type = "cache.t3.micro"
+
+# Desired task counts
+pet_api_desired_count    = 2
+analytics_desired_count  = 1
+
+# ACM certificate ARN for HTTPS — leave empty to use HTTP only
+# Create via: aws acm request-certificate --domain-name api.yourdomain.com
+certificate_arn = ""
+
+# MongoDB Atlas connection string (provisioned outside Terraform)
+# Format: mongodb+srv://user:password@cluster.mongodb.net/petdb
+mongodb_uri = ""

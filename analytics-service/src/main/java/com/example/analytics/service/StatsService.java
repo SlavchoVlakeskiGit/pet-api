@@ -53,6 +53,7 @@ public class StatsService {
         log.debug("Recorded {} event — daily totals updated", event.eventType());
     }
 
+    @Transactional(readOnly = true)
     public StatsResponse getOverallStats() {
         long created = getLong(KEY_ACTION + "CREATED");
         long updated = getLong(KEY_ACTION + "UPDATED");
@@ -63,6 +64,7 @@ public class StatsService {
         return new StatsResponse(created, updated, deleted, created - deleted, bySpecies);
     }
 
+    @Transactional(readOnly = true)
     public List<DailyStatsEntry> getDailyStats(int days) {
         LocalDate from = LocalDate.now().minusDays(days - 1);
         return dailyStatsRepository.findByDateGreaterThanEqualOrderByDateDescActionAsc(from)

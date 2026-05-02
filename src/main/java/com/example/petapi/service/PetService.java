@@ -28,6 +28,7 @@ import java.util.List;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -58,12 +59,14 @@ public class PetService {
         this.petsDeletedCounter = Counter.builder("pets.deleted").description("Total pets soft-deleted").register(meterRegistry);
     }
 
+    @Transactional(readOnly = true)
     public Page<PetResponse> getAllPets(String species, String ownerName, Pageable pageable) {
         log.info("Fetching pets - species: {}, ownerName: {}, page: {}", species, ownerName, pageable.getPageNumber());
         return repository.findAllActive(species, ownerName, pageable)
                 .map(mapper::toResponse);
     }
 
+    @Transactional(readOnly = true)
     @Timed(value = "pets.get.duration", description = "Time to fetch a pet by ID")
     @Cacheable(value = "pets", key = "#id")
     @Retry(name = "pet-db")
@@ -81,6 +84,7 @@ public class PetService {
         return mapper.toResponse(existingPet);
     }
 
+    @Transactional
     @Timed(value = "pets.create.duration", description = "Time to create a pet")
     public PetResponse addPet(CreatePetRequest request) {
         request.setName(sanitize(request.getName()));
@@ -96,6 +100,7 @@ public class PetService {
         return response;
     }
 
+    @Transactional
     @Timed(value = "pets.update.duration", description = "Time to update a pet")
     @CacheEvict(value = "pets", key = "#id")
     public PetResponse updatePet(Long id, UpdatePetRequest request) {
@@ -130,6 +135,7 @@ public class PetService {
         return response;
     }
 
+    @Transactional
     @CacheEvict(value = "pets", key = "#id")
     public void deletePet(Long id) {
         log.info("Soft deleting pet with id: {}", id);
@@ -148,6 +154,7 @@ public class PetService {
         petsDeletedCounter.increment();
     }
 
+    @Transactional(readOnly = true)
     public List<PetAuditLog> getAuditLog(Long petId) {
         return auditRepository.findByPetIdOrderByOccurredAtDesc(petId);
     }
