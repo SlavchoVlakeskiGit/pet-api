@@ -7,7 +7,8 @@ on:
     branches: [ main ]
 
 jobs:
-  build-and-test:
+  pet-api:
+    name: Pet API — test, analyse, publish
     runs-on: ubuntu-latest
 
     steps:
@@ -31,7 +32,7 @@ jobs:
       - name: Upload JaCoCo coverage report
         uses: actions/upload-artifact@v4
         with:
-          name: jacoco-report
+          name: pet-api-jacoco
           path: target/site/jacoco/
 
       - name: SonarCloud analysis
@@ -58,7 +59,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Docker image
+      - name: Build and push pet-api image
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: docker/build-push-action@v5
         with:
@@ -67,3 +68,48 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:latest
             ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+  analytics-service:
+    name: Analytics Service — test, publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Run tests with coverage
+        run: mvn verify -f analytics-service/pom.xml -q
+
+      - name: Upload JaCoCo coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: analytics-jacoco
+          path: analytics-service/target/site/jacoco/
+
+      - name: Build JAR
+        run: mvn package -f analytics-service/pom.xml -DskipTests -q
+
+      - name: Log in to GHCR
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push analytics-service image
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./analytics-service
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/analytics-service:latest
+            ghcr.io/${{ github.repository_owner }}/analytics-service:${{ github.sha }}

@@ -1,0 +1,699 @@
+{
+  "info": {
+    "name": "Pet API",
+    "description": "Full API collection for the Pet API portfolio project.\n\n**Quick start**\n1. Start the stack: `docker-compose up --build`\n2. Run **Register** then **Login (User)** — the token is saved automatically.\n3. Run **Login (Admin)** for admin endpoints.\n4. Run requests in order within each folder.\n\nVariables `base_url` (default `http://localhost`) and `analytics_url` (default `http://localhost:8081`) can be changed in the collection editor for local dev without Docker (`http://localhost:8080`).",
+    "_postman_id": "pet-api-portfolio-collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url",       "value": "http://localhost",      "type": "string" },
+    { "key": "analytics_url",  "value": "http://localhost:8081", "type": "string" },
+    { "key": "token",          "value": "",                      "type": "string" },
+    { "key": "admin_token",    "value": "",                      "type": "string" },
+    { "key": "refresh_token",  "value": "",                      "type": "string" },
+    { "key": "pet_id",         "value": "1",                     "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"demo_user\",\n  \"password\": \"Secret123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "auth", "register"]
+            },
+            "description": "Registers a new USER-role account. Password must be at least 8 characters, contain one uppercase letter and one digit."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Confirmation message present', () => {",
+                  "    pm.expect(pm.response.json().message).to.include('registered');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (User)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"demo_user\",\n  \"password\": \"Secret123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "auth", "login"]
+            },
+            "description": "Saves the access token to `{{token}}` and the refresh token to `{{refresh_token}}` automatically."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Access token returned', () => pm.expect(body.token).to.be.a('string').and.not.empty);",
+                  "pm.collectionVariables.set('token', body.token);",
+                  "pm.collectionVariables.set('refresh_token', body.refreshToken);",
+                  "console.log('User token saved.');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "auth", "login"]
+            },
+            "description": "Saves the admin token to `{{admin_token}}`. The admin user is seeded automatically on first startup."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('admin_token', body.token);",
+                  "console.log('Admin token saved.');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "auth", "refresh"]
+            },
+            "description": "Exchange the refresh token (7-day lifetime) for a new access token (15-min lifetime)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('New access token returned', () => pm.expect(body.token).to.be.a('string'));",
+                  "pm.collectionVariables.set('token', body.token);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "auth", "logout"]
+            },
+            "description": "Blacklists the JWT in Redis (for its remaining TTL) and deletes the refresh token from MySQL."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Logged out message', () => {",
+                  "    pm.expect(pm.response.json().message).to.include('Logged out');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Pets",
+      "item": [
+        {
+          "name": "List Pets",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/v1/pets?page=0&size=10",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "pets"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "Public endpoint. Paginated. Filter with `?species=Dog` or `?ownerName=John`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Page structure present', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('totalElements');",
+                  "    pm.expect(body).to.have.property('content');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Pets — Filter by Species",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/v1/pets?species=Dog&page=0&size=5",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "pets"],
+              "query": [
+                { "key": "species", "value": "Dog" },
+                { "key": "page",    "value": "0" },
+                { "key": "size",    "value": "5" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Pet",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization",  "value": "Bearer {{token}}" },
+              { "key": "Content-Type",   "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Rex\",\n  \"species\": \"Dog\",\n  \"age\": 3,\n  \"ownerName\": \"John\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/pets",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "pets"]
+            },
+            "description": "Requires USER or ADMIN role. Saves the returned `id` to `{{pet_id}}` for use in subsequent requests."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Pet ID returned', () => pm.expect(body.id).to.be.a('number'));",
+                  "pm.collectionVariables.set('pet_id', body.id);",
+                  "console.log('Saved pet_id:', body.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Pet — Idempotency Demo",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization",    "value": "Bearer {{token}}" },
+              { "key": "Content-Type",     "value": "application/json" },
+              { "key": "Idempotency-Key",  "value": "demo-fixed-key-abc123", "description": "Run this request twice — the second call returns the original response without creating a second pet." }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Idempotent Cat\",\n  \"species\": \"Cat\",\n  \"age\": 2\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/pets",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "pets"]
+            },
+            "description": "Run this request twice with the same Idempotency-Key. The second call returns 201 with the *same* pet ID — no duplicate is created. The response is cached in Redis for 24 hours."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Pet ID stable across retries', () => {",
+                  "    pm.expect(pm.response.json().id).to.be.a('number');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Pet by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/v1/pets/{{pet_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "pets", "{{pet_id}}"]
+            },
+            "description": "Public. Response is Redis-cached. Check the `ETag` response header — copy it for the 304 demo below."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('ETag header present', () => {",
+                  "    pm.expect(pm.response.headers.get('ETag')).to.be.a('string');",
+                  "});",
+                  "const etag = pm.response.headers.get('ETag');",
+                  "if (etag) pm.collectionVariables.set('etag', etag);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Pet — ETag 304 Demo",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "If-None-Match", "value": "{{etag}}", "description": "Populated automatically by the previous request's test script." }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/pets/{{pet_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "pets", "{{pet_id}}"]
+            },
+            "description": "Sends the ETag from the previous GET. If the resource hasn't changed the server returns 304 Not Modified with no body — saves bandwidth."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 304 Not Modified', () => pm.response.to.have.status(304));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Pet (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Rex Updated\",\n  \"age\": 4\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/pets/{{pet_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "pets", "{{pet_id}}"]
+            },
+            "description": "Partial update — only provided fields are changed. Evicts the Redis cache for this pet. Publishes an UPDATED Kafka event."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Name updated', () => {",
+                  "    pm.expect(pm.response.json().name).to.equal('Rex Updated');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Audit Log — Admin Only",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/pets/{{pet_id}}/audit",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "pets", "{{pet_id}}", "audit"]
+            },
+            "description": "Returns every CREATED/UPDATED/DELETED event for this pet from MongoDB, newest first. Requires ADMIN role — try with `{{token}}` to see 403."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('At least one audit entry', () => {",
+                  "    pm.expect(pm.response.json()).to.be.an('array').with.lengthOf.at.least(1);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Pet — Admin Only",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{admin_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/pets/{{pet_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "pets", "{{pet_id}}"]
+            },
+            "description": "Soft delete — sets `deleted_at` timestamp, pet no longer appears in GET responses. A scheduled job at 02:00 daily permanently removes pets deleted more than 30 days ago. Requires ADMIN role."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204 No Content', () => pm.response.to.have.status(204));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Deleted Pet — Expect 404",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/v1/pets/{{pet_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "pets", "{{pet_id}}"]
+            },
+            "description": "Confirms the soft-deleted pet is no longer visible. Returns RFC 7807 Problem Detail."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 404 Not Found', () => pm.response.to.have.status(404));",
+                  "pm.test('RFC 7807 Problem Detail', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('title');",
+                  "    pm.expect(body).to.have.property('detail');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Overall Stats",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{analytics_url}}/v1/stats",
+              "host": ["{{analytics_url}}"],
+              "path": ["v1", "stats"]
+            },
+            "description": "Returns total CREATED, UPDATED, DELETED counts from Redis, active pet count (created − deleted), and a per-species breakdown of pets created."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Response has expected fields', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('totalCreated');",
+                  "    pm.expect(body).to.have.property('totalDeleted');",
+                  "    pm.expect(body).to.have.property('activePets');",
+                  "    pm.expect(body).to.have.property('bySpecies');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Daily Stats — 30 days",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{analytics_url}}/v1/stats/daily?days=30",
+              "host": ["{{analytics_url}}"],
+              "path": ["v1", "stats", "daily"],
+              "query": [{ "key": "days", "value": "30" }]
+            },
+            "description": "Time-series breakdown from MySQL. Each entry contains a date, action (CREATED/UPDATED/DELETED), and count. Max 90 days."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('Returns an array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Daily Stats — 7 days",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{analytics_url}}/v1/stats/daily?days=7",
+              "host": ["{{analytics_url}}"],
+              "path": ["v1", "stats", "daily"],
+              "query": [{ "key": "days", "value": "7" }]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200 OK', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Security Demos",
+      "description": "Requests that demonstrate RBAC, rate limiting, and validation — useful for showing in interviews.",
+      "item": [
+        {
+          "name": "Delete Pet as USER — Expect 403",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}", "description": "USER token, not admin" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/v1/pets/{{pet_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "pets", "{{pet_id}}"]
+            },
+            "description": "DELETE requires ADMIN role. A USER token receives 403 Forbidden."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 403 Forbidden', () => pm.response.to.have.status(403));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Pet — Validation Error",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"age\": 3\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/pets",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "pets"]
+            },
+            "description": "Missing `name` and `species`. Returns 400 with RFC 7807 Problem Detail listing each field error."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));",
+                  "pm.test('Validation errors listed', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property('errors');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register — Weak Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"weakuser\",\n  \"password\": \"simple\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "auth", "register"]
+            },
+            "description": "Password is too short and has no uppercase or digit. Returns 400 with validation detail."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 400 Bad Request', () => pm.response.to.have.status(400));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login — Invalid Credentials",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"demo_user\",\n  \"password\": \"wrongpassword\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/v1/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["v1", "auth", "login"]
+            },
+            "description": "Returns 401. After 5 consecutive failures the account is locked for 15 minutes (429 Too Many Requests)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 401 Unauthorized', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
