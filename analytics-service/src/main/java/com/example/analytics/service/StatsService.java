@@ -3,7 +3,6 @@ package com.example.analytics.service;
 import com.example.analytics.dto.DailyStatsEntry;
 import com.example.analytics.dto.StatsResponse;
 import com.example.analytics.event.PetEvent;
-import com.example.analytics.model.DailyStats;
 import com.example.analytics.repository.DailyStatsRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,11 +43,7 @@ public class StatsService {
             redis.opsForValue().increment(KEY_SPECIES + event.species() + ":" + event.eventType());
         }
 
-        LocalDate today = LocalDate.now();
-        DailyStats entry = dailyStatsRepository.findByDateAndAction(today, event.eventType())
-                .orElseGet(() -> new DailyStats(today, event.eventType(), 0L));
-        entry.setCount(entry.getCount() + 1);
-        dailyStatsRepository.save(entry);
+        dailyStatsRepository.upsertCount(LocalDate.now(), event.eventType());
 
         log.debug("Recorded {} event — daily totals updated", event.eventType());
     }

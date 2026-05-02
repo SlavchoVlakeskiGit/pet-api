@@ -114,6 +114,10 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> logout(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestHeader("Authorization") String authHeader) {
+        if (userDetails == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Not authenticated"));
+        }
         String token = authHeader.substring(7);
         long remaining = jwtService.getRemainingSeconds(token);
         tokenBlacklistService.blacklist(token, remaining);

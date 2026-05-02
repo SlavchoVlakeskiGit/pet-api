@@ -17,7 +17,7 @@ output "redis_endpoint" {
 
 output "msk_bootstrap_brokers" {
   description = "MSK Serverless bootstrap broker string"
-  value       = aws_msk_serverless_cluster.kafka.cluster_name
+  value       = data.aws_msk_bootstrap_brokers.kafka.bootstrap_brokers_sasl_iam
   sensitive   = true
 }
 

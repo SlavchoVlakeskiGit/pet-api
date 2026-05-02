@@ -7,6 +7,9 @@ RUN mvn package -DskipTests -q
 
 FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
 COPY --from=build /app/target/pet-api-0.0.1-SNAPSHOT.jar app.jar
+RUN chown appuser:appgroup app.jar
+USER appuser
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
