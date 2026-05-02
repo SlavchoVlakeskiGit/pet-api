@@ -20,14 +20,24 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Run OWASP Dependency Check
+      - name: Run OWASP Dependency Check (pet-api)
         run: |
           chmod +x mvnw
           ./mvnw dependency-check:check -DfailBuildOnCVSS=7
 
-      - name: Upload OWASP report
+      - name: Upload pet-api OWASP report
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: owasp-dependency-report
+          name: owasp-pet-api-report
           path: target/dependency-check-report.html
+
+      - name: Run OWASP Dependency Check (analytics-service)
+        run: mvn dependency-check:check -f analytics-service/pom.xml -DfailBuildOnCVSS=7
+
+      - name: Upload analytics-service OWASP report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: owasp-analytics-report
+          path: analytics-service/target/dependency-check-report.html
